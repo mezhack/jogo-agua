@@ -62,21 +62,34 @@ export default function Home() {
   const proximoTurno = () => {
     setGame(prev => {
       let novoReservatorio = prev.reservatorio;
-      let novaSatisfacao = prev.satisfacao;
+      let novaSatisfacao = prev.satisfacao - 10; // Reduz satisfação por dia
       let novoChuva = false;
 
-      // Verificar chuva (20% de chance)
-      if (Math.random() <= 0.2) {
-        novoReservatorio += 20;
+      // Verificar chuva (25% de chance)
+      if (Math.random() <= 0.25) {
+        novoReservatorio += 50;
         novoChuva = true;
-        addLog('> [ALERTA] CHUVA DETECTADA! +20 DE ÁGUA');
+        addLog('> [ALERTA] CHUVA DETECTADA! +50 DE ÁGUA');
       }
 
       // Reduzir satisfação se não fornecer água
-      novaSatisfacao -= 10;
+      //novaSatisfacao -= 10;
 
       // Gerar nova demanda
       const novaDemanda = Math.floor(Math.random() * 30) + 1;
+
+      // Acumuluar aquecimento com a demanda do dia
+      const novoAquecimento = prev.aquecimentoAcu + novaDemanda;
+
+      if (novoAquecimento >= 60) {
+        addLog('> [CRÍTICO] AQUECIMENTO CRÍTICO! SERVIDOR ESTOUROU!');
+        return {
+          ...prev,
+          aquecimentoAcu: 60,
+          gameStatus: 'gameover_aquecimento',
+          logs: [...prev.logs.slice(-8), '> VOCÊ PERDEU! AQUECIMENTO CRÍTICO']
+        };
+      }
 
       return {
         ...prev,
@@ -84,6 +97,7 @@ export default function Home() {
         reservatorio: novoReservatorio,
         satisfacao: novaSatisfacao,
         demanda: novaDemanda,
+        aquecimentoAcu: novoAquecimento,
         chuva: novoChuva,
         logs: [
           ...prev.logs.slice(-8),
@@ -96,14 +110,14 @@ export default function Home() {
   const handleResfriar = () => {
     const quantidade = parseInt(inputValue);
     
-    if (!quantidade || quantidade < 1 || quantidade > 43) {
-      addLog('> [ERRO] VALOR INVÁLIDO! ESCOLHA ENTRE 1 E 43');
+    if (!quantidade || quantidade < 1 || quantidade > 50) {
+      addLog('> [ERRO] VALOR INVÁLIDO! ESCOLHA ENTRE 1 E 50');
       return;
     }
 
     setGame(prev => {
       let novoReservatorio = prev.reservatorio - quantidade;
-      let novoAquecimento = Math.max(0, prev.aquecimentoAcu + prev.demanda - quantidade);
+      let novoAquecimento = Math.max(0, prev.aquecimentoAcu - quantidade);
 
       if (novoReservatorio <= 0) {
         addLog('> [CRÍTICO] RESERVATÓRIO VAZIO! GAME OVER');
@@ -122,6 +136,7 @@ export default function Home() {
         return {
           ...prev,
           gameStatus: 'gameover_aquecimento',
+          aquecimentoAcu: 60,
           logs: [...prev.logs.slice(-8), '> VOCÊ PERDEU! AQUECIMENTO CRÍTICO']
         };
       }
@@ -150,7 +165,7 @@ export default function Home() {
 
   const handleIgnorar = () => {
     setGame(prev => {
-      const novoAquecimento = prev.aquecimentoAcu + prev.demanda;
+      const novoAquecimento = prev.aquecimentoAcu;
 
       addLog(`> AQUECIMENTO IGNORADO! ACUMULADO: ${novoAquecimento}`);
 
@@ -159,6 +174,7 @@ export default function Home() {
         return {
           ...prev,
           gameStatus: 'gameover_aquecimento',
+          aquecimentoAcu: 60,
           logs: [...prev.logs.slice(-8), '> VOCÊ PERDEU! AQUECIMENTO CRÍTICO']
         };
       }
@@ -191,7 +207,8 @@ export default function Home() {
 
     setGame(prev => {
       let novoReservatorio = prev.reservatorio - quantidade;
-      let novaSatisfacao = prev.satisfacao + 20;
+      let novaSatisfacao = prev.satisfacao + quantidade + 10; // Fornecer água aumenta satisfação
+      let novoAquecimento = Math.max(0, prev.aquecimentoAcu - quantidade);
 
       if (novoReservatorio <= 0) {
         addLog('> [CRÍTICO] RESERVATÓRIO VAZIO! GAME OVER');
@@ -201,21 +218,21 @@ export default function Home() {
           logs: [...prev.logs.slice(-8), '> VOCÊ PERDEU! RESERVATÓRIO ESGOTADO']
         };
       }
+      
+      if (novoAquecimento >= 60) {
+        addLog('> [CRÍTICO] AQUECIMENTO CRÍTICO! SERVIDOR ESTOUROU!');
+        return {
+          ...prev,
+          gameStatus: 'gameover_aquecimento',
+          aquecimentoAcu: 60,
+          logs: [...prev.logs.slice(-8), '> VOCÊ PERDEU! AQUECIMENTO CRÍTICO']
+        };
+      }
 
       addLog(`> ÁGUA FORNECIDA À CIDADE: +${quantidade}`);
       addLog(`> SATISFAÇÃO: ${novaSatisfacao}`);
 
       setInputValue('');
-
-      if (prev.dia >= 30) {
-        return {
-          ...prev,
-          reservatorio: novoReservatorio,
-          satisfacao: novaSatisfacao,
-          gameStatus: 'vitoria',
-          logs: [...prev.logs.slice(-8), '> PARABÉNS! VOCÊ COMPLETOU 30 DIAS!']
-        };
-      }
 
       setTimeout(() => proximoTurno(), 500);
 
@@ -223,6 +240,7 @@ export default function Home() {
         ...prev,
         reservatorio: novoReservatorio,
         satisfacao: novaSatisfacao,
+        aquecimentoAcu: novoAquecimento,
       };
     });
   };
